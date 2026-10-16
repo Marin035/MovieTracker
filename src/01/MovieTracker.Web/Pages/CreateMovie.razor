@@ -1,0 +1,99 @@
+@page "/movies/create"
+@inject MovieApiClient MovieApiClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Add New Movie</PageTitle>
+
+<section class="auth-wrap page-section">
+    <div class="auth-card wide">
+        <span class="brand-mark">+</span>
+        <span class="eyebrow">NEW ENTRY</span>
+        <h1>Add a Movie</h1>
+        <p>Add a new title to the MovieTracker catalogue.</p>
+
+        @if (errorMessage is not null)
+        {
+            <div class="form-message" style="background: #ffe6e6; border: 1px solid #dc3545; color: #dc3545;">
+                @errorMessage
+            </div>
+        }
+
+        <EditForm Model="model" OnValidSubmit="HandleSubmit">
+            <DataAnnotationsValidator />
+
+            <label>
+                Title
+                <InputText @bind-Value="model.Title" placeholder="e.g. Oppenheimer" />
+                <ValidationMessage For="() => model.Title" />
+            </label>
+
+            <label>
+                Description
+                <InputTextArea @bind-Value="model.Description" rows="4" placeholder="Brief synopsis of the film..." />
+                <ValidationMessage For="() => model.Description" />
+            </label>
+
+            <div class="form-columns">
+                <label>
+                    Genre
+                    <InputSelect @bind-Value="model.Genre">
+                        <option value="Action">Action</option>
+                        <option value="Drama">Drama</option>
+                        <option value="Comedy">Comedy</option>
+                        <option value="ScienceFiction">Science Fiction</option>
+                        <option value="Thriller">Thriller</option>
+                        <option value="Animation">Animation</option>
+                        <option value="Crime">Crime</option>
+                        <option value="Fantasy">Fantasy</option>
+                    </InputSelect>
+                    <ValidationMessage For="() => model.Genre" />
+                </label>
+
+                <label>
+                    Release Year
+                    <InputNumber @bind-Value="model.ReleaseYear" min="1888" max="2100" />
+                    <ValidationMessage For="() => model.ReleaseYear" />
+                </label>
+            </div>
+
+            <label>
+                Poster URL
+                <InputText @bind-Value="model.PosterUrl" placeholder="e.g. /images/posters/interstellar.svg" />
+                <ValidationMessage For="() => model.PosterUrl" />
+            </label>
+
+            <div style="display: flex; gap: 12px; margin-top: 15px;">
+                <button class="button" type="submit" disabled="@isSubmitting" style="flex: 1;">
+                    @(isSubmitting ? "Creating…" : "Create Movie")
+                </button>
+                <NavLink class="button button-outline" href="movies">Cancel</NavLink>
+            </div>
+        </EditForm>
+    </div>
+</section>
+
+@code {
+    private CreateMovieModel model = new();
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    private async Task HandleSubmit()
+    {
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            var newId = await MovieApiClient.CreateMovieAsync(model);
+            NavigationManager.NavigateTo($"movies/{newId}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to create movie: " + ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

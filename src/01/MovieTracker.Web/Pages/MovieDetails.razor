@@ -1,0 +1,142 @@
+@page "/movies/{Id:guid}"
+@inject MovieApiClient MovieApiClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>@(movie?.Title ?? "Movie details")</PageTitle>
+
+@if (isLoading)
+{
+    <div class="state-panel"><span class="spinner" aria-hidden="true"></span><h2>Loading movie details…</h2></div>
+}
+else if (errorMessage is not null)
+{
+    <section class="state-panel error-panel" role="alert">
+        <h2>Error loading movie</h2>
+        <p>@errorMessage</p>
+        <NavLink class="button" href="movies">Back to movies</NavLink>
+    </section>
+}
+else if (movie is null)
+{
+    <section class="state-panel">
+        <h1>Movie not found</h1>
+        <p>The requested movie could not be found in the catalogue.</p>
+        <NavLink class="button" href="movies">Back to movies</NavLink>
+    </section>
+}
+else
+{
+    <section class="details-hero page-section">
+        <img src="@movie.PosterUrl" alt="Poster for @movie.Title" />
+        <div>
+            <span class="genre-badge">@FormatGenre(movie.Genre)</span>
+            <h1>@movie.Title</h1>
+            <p class="details-meta">@movie.ReleaseYear</p>
+            <p class="details-description">@movie.Description</p>
+            <div class="details-actions">
+                <button class="button" @onclick="ToggleWatchlist">@(inWatchlist ? "✓ In watchlist" : "+ Add to watchlist")</button>
+                <NavLink class="button button-outline" href="@($"movies/{Id}/edit")">Edit movie</NavLink>
+                <button class="button button-danger" @onclick="ConfirmDelete">Delete movie</button>
+                @if (statusMessage is not null) { <span class="success-message">@statusMessage</span> }
+            </div>
+            @if (showDeleteConfirm)
+            {
+                <div class="confirm-dialog" style="margin-top: 1rem; padding: 1rem; background: rgba(220, 53, 69, 0.1); border: 1px solid #dc3545; border-radius: 8px;">
+                    <p style="margin-bottom: 0.5rem; font-weight: 600;">Are you sure you want to delete "@movie.Title"?</p>
+                    <div style="display: flex; gap: 0.5rem;">
+                        <button class="button button-danger" @onclick="DeleteMovieAsync" disabled="@isDeleting">
+                            @(isDeleting ? "Deleting…" : "Yes, Delete")
+                        </button>
+                        <button class="button button-outline" @onclick="() => showDeleteConfirm = false">Cancel</button>
+                    </div>
+                </div>
+            }
+            <div class="rate-box" style="margin-top: 1.5rem;">
+                <span>Your rating</span>
+                @foreach (var score in Enumerable.Range(1, 10))
+                {
+                    var capturedScore = score;
+                    <button class="rate-button @(userRating == score ? "selected" : null)" @onclick="() => Rate(capturedScore)">@score</button>
+                }
+            </div>
+        </div>
+    </section>
+    <section class="page-section reviews-section">
+        <div class="section-heading"><div><span class="eyebrow">COMMUNITY NOTES</span><h2>Demo reviews</h2></div></div>
+        <div class="review-grid">
+            <article><b>Maya K. <span>★ 9.0</span></b><p>Beautifully paced and even better on a second viewing.</p></article>
+            <article><b>Alex R. <span>★ 8.5</span></b><p>A memorable film with images that stay with you.</p></article>
+        </div>
+    </section>
+}
+
+@code {
+    [Parameter] 
+    public Guid Id { get; set; }
+
+    private MovieDetailModel? movie;
+    private bool isLoading = true;
+    private string? errorMessage;
+    private bool inWatchlist;
+    private int? userRating;
+    private string? statusMessage;
+    private bool showDeleteConfirm;
+    private bool isDeleting;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        await LoadMovieAsync();
+    }
+
+    private async Task LoadMovieAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            movie = await MovieApiClient.GetMovieByIdAsync(Id);
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load movie details. " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private void ToggleWatchlist()
+    {
+        inWatchlist = !inWatchlist;
+        statusMessage = inWatchlist ? "Saved to watchlist." : "Removed from watchlist.";
+    }
+
+    private void Rate(int score)
+    {
+        userRating = score;
+        statusMessage = $"Rating set to {score}/10.";
+    }
+
+    private void ConfirmDelete()
+    {
+        showDeleteConfirm = true;
+    }
+
+    private async Task DeleteMovieAsync()
+    {
+        isDeleting = true;
+        try
+        {
+            await MovieApiClient.DeleteMovieAsync(Id);
+            NavigationManager.NavigateTo("movies");
+        }
+        catch (Exception ex)
+        {
+            statusMessage = "Failed to delete movie: " + ex.Message;
+            isDeleting = false;
+        }
+    }
+
+    private static string FormatGenre(string genre) => genre == "ScienceFiction" ? "Science Fiction" : genre;
+}

@@ -1,0 +1,156 @@
+@page "/movies/{Id:guid}/edit"
+@inject MovieApiClient MovieApiClient
+@inject NavigationManager NavigationManager
+
+<PageTitle>Edit Movie</PageTitle>
+
+<section class="auth-wrap page-section">
+    <div class="auth-card wide">
+        <span class="brand-mark">✎</span>
+        <span class="eyebrow">UPDATE ENTRY</span>
+        <h1>Edit Movie</h1>
+        <p>Update movie details in the catalogue.</p>
+
+        @if (isLoading)
+        {
+            <div class="state-panel" style="min-height: 200px;">
+                <span class="spinner" aria-hidden="true"></span>
+                <h2>Loading movie details…</h2>
+            </div>
+        }
+        else if (errorMessage is not null && model is null)
+        {
+            <div class="form-message" style="background: #ffe6e6; border: 1px solid #dc3545; color: #dc3545;">
+                @errorMessage
+            </div>
+            <NavLink class="button button-outline" href="movies">Back to movies</NavLink>
+        }
+        else if (model is not null)
+        {
+            @if (errorMessage is not null)
+            {
+                <div class="form-message" style="background: #ffe6e6; border: 1px solid #dc3545; color: #dc3545;">
+                    @errorMessage
+                </div>
+            }
+
+            <EditForm Model="model" OnValidSubmit="HandleSubmit">
+                <DataAnnotationsValidator />
+
+                <label>
+                    Title
+                    <InputText @bind-Value="model.Title" placeholder="Title" />
+                    <ValidationMessage For="() => model.Title" />
+                </label>
+
+                <label>
+                    Description
+                    <InputTextArea @bind-Value="model.Description" rows="4" placeholder="Brief synopsis of the film..." />
+                    <ValidationMessage For="() => model.Description" />
+                </label>
+
+                <div class="form-columns">
+                    <label>
+                        Genre
+                        <InputSelect @bind-Value="model.Genre">
+                            <option value="Action">Action</option>
+                            <option value="Drama">Drama</option>
+                            <option value="Comedy">Comedy</option>
+                            <option value="ScienceFiction">Science Fiction</option>
+                            <option value="Thriller">Thriller</option>
+                            <option value="Animation">Animation</option>
+                            <option value="Crime">Crime</option>
+                            <option value="Fantasy">Fantasy</option>
+                        </InputSelect>
+                        <ValidationMessage For="() => model.Genre" />
+                    </label>
+
+                    <label>
+                        Release Year
+                        <InputNumber @bind-Value="model.ReleaseYear" min="1888" max="2100" />
+                        <ValidationMessage For="() => model.ReleaseYear" />
+                    </label>
+                </div>
+
+                <label>
+                    Poster URL
+                    <InputText @bind-Value="model.PosterUrl" placeholder="e.g. /images/posters/interstellar.svg" />
+                    <ValidationMessage For="() => model.PosterUrl" />
+                </label>
+
+                <div style="display: flex; gap: 12px; margin-top: 15px;">
+                    <button class="button" type="submit" disabled="@isSubmitting" style="flex: 1;">
+                        @(isSubmitting ? "Saving…" : "Save Changes")
+                    </button>
+                    <NavLink class="button button-outline" href="@($"movies/{Id}")">Cancel</NavLink>
+                </div>
+            </EditForm>
+        }
+    </div>
+</section>
+
+@code {
+    [Parameter]
+    public Guid Id { get; set; }
+
+    private UpdateMovieModel? model;
+    private bool isLoading = true;
+    private bool isSubmitting;
+    private string? errorMessage;
+
+    protected override async Task OnParametersSetAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+
+        try
+        {
+            var movie = await MovieApiClient.GetMovieByIdAsync(Id);
+            if (movie is null)
+            {
+                errorMessage = "Movie not found.";
+            }
+            else
+            {
+                model = new UpdateMovieModel
+                {
+                    Title = movie.Title,
+                    Description = movie.Description,
+                    Genre = movie.Genre,
+                    ReleaseYear = movie.ReleaseYear,
+                    PosterUrl = movie.PosterUrl
+                };
+            }
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to load movie: " + ex.Message;
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+
+    private async Task HandleSubmit()
+    {
+        if (model is null) return;
+
+        isSubmitting = true;
+        errorMessage = null;
+
+        try
+        {
+            await MovieApiClient.UpdateMovieAsync(Id, model);
+            NavigationManager.NavigateTo($"movies/{Id}");
+        }
+        catch (Exception ex)
+        {
+            errorMessage = "Failed to update movie: " + ex.Message;
+        }
+        finally
+        {
+            isSubmitting = false;
+        }
+    }
+}

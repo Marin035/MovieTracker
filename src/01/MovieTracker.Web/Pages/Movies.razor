@@ -1,0 +1,65 @@
+@page "/movies"
+@inject MovieApiClient MovieApiClient
+
+<PageTitle>Movies</PageTitle>
+
+<section class="page-header page-section">
+    <div style="display: flex; justify-content: space-between; align-items: flex-end; flex-wrap: wrap; gap: 20px;">
+        <div>
+            <span class="eyebrow">THE CATALOGUE</span>
+            <h1>Find your next favourite</h1>
+            <p>This list is loaded from the MovieTracker API and its in-memory catalogue.</p>
+        </div>
+        <NavLink class="button" href="movies/create">+ Add Movie</NavLink>
+    </div>
+</section>
+
+@if (isLoading)
+{
+    <div class="state-panel"><span class="spinner" aria-hidden="true"></span><h2>Loading movies…</h2><p>Asking the API for the latest catalogue.</p></div>
+}
+else if (errorMessage is not null)
+{
+    <div class="state-panel error-panel" role="alert"><span class="state-icon">!</span><h2>We couldn't load the movies</h2><p>@errorMessage</p><button class="button" @onclick="LoadMoviesAsync">Try again</button></div>
+}
+else if (response is null || response.Items.Count == 0)
+{
+    <div class="state-panel"><h2>No movies yet</h2><p>The in-memory catalogue is ready for its first title.</p></div>
+}
+else
+{
+    <div class="catalogue-meta page-section"><span>@response.TotalCount movies</span><span>Sorted by title</span></div>
+    <section class="movie-grid page-section" aria-label="Movie catalogue">
+        @foreach (var movie in response.Items)
+        {
+            <MovieCard Movie="movie" />
+        }
+    </section>
+}
+
+@code {
+    private MovieListResponseModel? response;
+    private string? errorMessage;
+    private bool isLoading = true;
+
+    protected override Task OnInitializedAsync() => LoadMoviesAsync();
+
+    private async Task LoadMoviesAsync()
+    {
+        isLoading = true;
+        errorMessage = null;
+        try
+        {
+            response = await MovieApiClient.GetMoviesAsync();
+        }
+        catch (Exception)
+        {
+            response = null;
+            errorMessage = "Make sure the API is running at the address configured in wwwroot/appsettings.json.";
+        }
+        finally
+        {
+            isLoading = false;
+        }
+    }
+}
